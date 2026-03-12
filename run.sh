@@ -34,10 +34,42 @@ case "$CMD" in
     echo "=== REPL ==="
     clj -M:repl
     ;;
+  ## --- Native Image ---
+  uberjar)
+    echo "=== Uberjar 빌드 ==="
+    mkdir -p target
+    clj -J-Dclojure.compiler.direct-linking=true -T:uberjar
+    echo "→ target/dictcli.jar"
+    ;;
+  native-build)
+    echo "=== GraalVM Native Image 빌드 ==="
+    # 1. uberjar
+    mkdir -p target
+    clj -J-Dclojure.compiler.direct-linking=true -T:uberjar
+    # 2. native-image
+    native-image \
+      -jar target/dictcli.jar \
+      -o target/dictcli \
+      -H:Name=dictcli \
+      --no-fallback \
+      --initialize-at-build-time \
+      -H:+ReportExceptionStackTraces \
+      --enable-native-access=ALL-UNNAMED \
+      -J-Xmx4g \
+      2>&1
+    echo ""
+    echo "→ target/dictcli ($(du -h target/dictcli | cut -f1))"
+    echo "  ./target/dictcli lookup 존재"
+    ;;
+  native-run)
+    # native binary로 실행
+    ./target/dictcli "$@"
+    ;;
+  ## --- 관리 ---
   clean)
     echo "=== 정리 ==="
     rm -f dictcli.db
-    rm -rf .cpcache/
+    rm -rf .cpcache/ target/
     echo "done"
     ;;
   help|*)
@@ -45,7 +77,7 @@ case "$CMD" in
     echo ""
     echo "Usage: ./run.sh <command> [args]"
     echo ""
-    echo "Commands:"
+    echo "Development (JVM):"
     echo "  build          전체 빌드 (~/sync/org/dict + saiculture wordmap)"
     echo "  build-sample   샘플 빌드 (data/ 폴더만)"
     echo "  lookup <word>  용어 검색"
@@ -53,6 +85,17 @@ case "$CMD" in
     echo "  stats          DB 통계"
     echo "  test           테스트 실행"
     echo "  repl           Clojure REPL"
-    echo "  clean          DB, 캐시 삭제"
+    echo ""
+    echo "Native (GraalVM):"
+    echo "  uberjar        AOT uberjar 빌드"
+    echo "  native-build   GraalVM native binary 빌드"
+    echo "  native-run     native binary로 실행"
+    echo ""
+    echo "Management:"
+    echo "  clean          DB, 캐시, target 삭제"
+    echo ""
+    echo "Shells:"
+    echo "  nix develop          — GraalVM (native-image 포함)"
+    echo "  nix develop .#jvm    — JVM only (가벼운 개발)"
     ;;
 esac

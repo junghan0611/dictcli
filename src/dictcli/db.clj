@@ -50,6 +50,12 @@
   (doseq [ddl schema-ddl]
     (jdbc/execute! ds [ddl])))
 
+(defn with-transaction
+  "트랜잭션으로 감싸서 bulk insert 성능 향상"
+  [ds f]
+  (jdbc/with-transaction [tx ds]
+    (f tx)))
+
 (defn insert-term!
   "용어 삽입"
   [ds {:keys [word lang definition source domain section line-no]}]

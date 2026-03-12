@@ -10,28 +10,45 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
+        graalvm = pkgs.graalvmPackages.graalvm-ce;
       in
       {
-        devShells.default = pkgs.mkShell {
-          name = "dictcli";
+        devShells = {
+          # 기본: GraalVM (native-image 포함)
+          default = pkgs.mkShell {
+            name = "dictcli";
 
-          buildInputs = with pkgs; [
-            # Clojure
-            clojure
-            jdk17_headless
+            buildInputs = with pkgs; [
+              clojure
+              graalvm       # JDK + native-image
+              sqlite
+            ];
 
-            # SQLite
-            sqlite
+            JAVA_HOME = graalvm;
+            GRAALVM_HOME = graalvm;
 
-            # etags (ten 호환)
-            emacs-nox
-          ];
+            shellHook = ''
+              echo "dictcli dev shell (GraalVM)"
+              echo "  ./run.sh build        — glossary → SQLite"
+              echo "  ./run.sh native-build — GraalVM native binary"
+              echo "  ./run.sh lookup 존재  — 용어 검색"
+            '';
+          };
 
-          shellHook = ''
-            echo "dictcli dev shell"
-            echo "  clj -M:run build   — glossary → SQLite"
-            echo "  clj -M:run lookup  — 용어 검색"
-          '';
+          # JVM만 (가벼운 개발용)
+          jvm = pkgs.mkShell {
+            name = "dictcli-jvm";
+
+            buildInputs = with pkgs; [
+              clojure
+              jdk17_headless
+              sqlite
+            ];
+
+            shellHook = ''
+              echo "dictcli dev shell (JVM only)"
+            '';
+          };
         };
       });
 }

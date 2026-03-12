@@ -74,6 +74,7 @@
   [dir-path & {:keys [extensions] :or {extensions #{"txt" "org" "md"}}}]
   (let [dir (clojure.java.io/file dir-path)
         files (->> (file-seq dir)
-                   (filter #(.isFile %))
-                   (filter #(extensions (last (clojure.string/split (.getName %) #"\.")))))]
-    (mapv #(parse-glossary-file (.getPath %)) files)))
+                   (filter (fn [^java.io.File f] (.isFile f)))
+                   (filter (fn [^java.io.File f]
+                             (extensions (last (clojure.string/split (.getName f) #"\."))))))]
+    (mapv (fn [^java.io.File f] (parse-glossary-file (.getPath f))) files)))

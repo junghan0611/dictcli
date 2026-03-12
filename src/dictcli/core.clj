@@ -3,7 +3,8 @@
   (:require [dictcli.parser :as parser]
             [dictcli.db :as db]
             [dictcli.wordmap :as wordmap]
-            [clojure.string :as str]))
+            [clojure.string :as str])
+  (:gen-class))
 
 (def default-db "dictcli.db")
 
@@ -12,14 +13,16 @@
   [dirs db-path]
   (let [ds (db/datasource db-path)]
     (db/init-db! ds)
-    (doseq [dir dirs]
-      (println (str "📖 파싱: " dir))
-      (let [results (parser/parse-directory dir)]
-        (doseq [{:keys [terms filepath]} results]
-          (when (seq terms)
-            (println (str "  " (count terms) " 용어 ← " filepath))
-            (doseq [term terms]
-              (db/insert-term! ds term))))))
+    (db/with-transaction ds
+      (fn [tx]
+        (doseq [dir dirs]
+          (println (str "📖 파싱: " dir))
+          (let [results (parser/parse-directory dir)]
+            (doseq [{:keys [terms filepath]} results]
+              (when (seq terms)
+                (println (str "  " (count terms) " 용어 ← " filepath))
+                (doseq [term terms]
+                  (db/insert-term! tx term))))))))
     (let [stats (db/stats ds)]
       (println (str "\n✅ 빌드 완료: " (:terms stats) " 용어 → " db-path)))))
 
@@ -32,11 +35,13 @@
     (let [{:keys [frequency cooccurrence]} (wordmap/parse-wordmap wordmap-path)
           freq-count (count frequency)
           co-count (count cooccurrence)]
-      (doseq [[word cnt] frequency]
-        (db/insert-freq! ds (name word) cnt "saiculture"))
-      (doseq [[pair cnt] cooccurrence]
-        (let [[w1 w2] (str/split (name pair) #" \+ ")]
-          (db/insert-cooccur! ds w1 w2 cnt "saiculture")))
+      (db/with-transaction ds
+        (fn [tx]
+          (doseq [[word cnt] frequency]
+            (db/insert-freq! tx (name word) cnt "saiculture"))
+          (doseq [[pair cnt] cooccurrence]
+            (let [[w1 w2] (str/split (name pair) #" \+ ")]
+              (db/insert-cooccur! tx w1 w2 cnt "saiculture")))))
       (println (str "✅ 워드맵: " freq-count " 빈도 + " co-count " 동시출현 → " db-path)))))
 
 (defn cmd-build
