@@ -3,11 +3,12 @@
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]))
 
-;; clojure.data.json이 없으면 직접 파싱 — deps.edn에 추가 필요시
-;; 일단 slurp + read-string으로 대체 가능
-
 (defn parse-wordmap
-  "wordmap.json 파싱. {:frequency {word count} :cooccurrence_top100 {pair count}}"
+  "wordmap.json 파싱. {:frequency {word count} :cooccurrence {pair count}}"
   [filepath]
-  ;; TODO: clojure.data.json 또는 cheshire 추가 후 구현
-  (println "TODO: parse" filepath))
+  (with-open [rdr (io/reader filepath)]
+    (let [data (json/read rdr :key-fn keyword)]
+      {:frequency (:frequency data)
+       :cooccurrence (:cooccurrence_top100 data)
+       :total-files (:total_files data)
+       :total-unique-tags (:total_unique_tags data)})))

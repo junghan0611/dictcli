@@ -126,10 +126,10 @@ data: add philosophy glossary sample
 
 ## 봇로그 참조
 
-- **20260309T194058** — 태그 정규화와 개인 어휘 사전 구상 (핵심 문서, 3축 구조, 중력장, 번역어, org-supertag 검토)
-- **20260308T091235** — dblock 링크 포맷 정책 (태그 정책 `[a-z0-9]` only)
-- **20260304T004500** — 지식그래프 무무 무의식 에이전트 연상맵
-- **20260305T055000** — 오픈클로 유즈케이스와 어쏠로지스트의 길
+- [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — 태그 정규화와 개인 어휘 사전 구상 (핵심 문서, 3축 구조, 중력장, 번역어, org-supertag 검토)
+- [20260308T091235](https://notes.junghanacs.com/botlog/20260308T091235) — dblock 링크 포맷 정책 (태그 정책 `[a-z0-9]` only)
+- [20260304T004500](https://notes.junghanacs.com/botlog/20260304T004500) — 지식그래프 무무 무의식 에이전트 연상맵
+- [20260305T055000](https://notes.junghanacs.com/botlog/20260305T055000) — 오픈클로 유즈케이스와 어쏠로지스트의 길
 
 ## 관련 소스
 
