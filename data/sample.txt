@@ -1,0 +1,25 @@
+-*- mode: markdown; coding: utf-8-unix; -*-
+---
+title:      sample
+date:       2026-03-12
+tags:       glossary
+identifier: 20260312T154500
+---
+
+# 철학 기본
+
+<<존재>> :: being, Sein. 하이데거 사유의 중심 물음.
+<<being>> :: 존재
+<<Sein>> :: 존재
+
+<<현존재>> :: Dasein. 세계-내-존재. 하이데거의 핵심 개념.
+<<Dasein>> :: 현존재
+
+<<선험적>> :: transcendental. 경험의 가능 조건에 관한 것. (내 선택: "초월적" 아닌 "선험적")
+<<transcendental>> :: 선험적
+<<transzendental>> :: 선험적
+
+# 교육
+
+<<구성주의>> :: constructivism. 학습자가 경험과 상호작용을 통해 스스로 지식을 구성한다는 이론.
+<<constructivism>> :: 구성주의
