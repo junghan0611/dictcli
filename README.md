@@ -75,9 +75,45 @@ clj -M:run related "하이데거"
 #  칸트(65), 아리스토텔레스(54), 후설(44), 성스러움(45)
 ```
 
+## 설치
+
+### 바이너리 (권장)
+
+GraalVM native-image로 빌드된 단일 실행 파일. JVM 불필요.
+
+```bash
+# 릴리즈에서 다운로드 (아키텍처별)
+# dictcli-linux-x86_64
+# dictcli-linux-aarch64
+
+# 또는 소스에서 직접 빌드
+nix develop
+./run.sh native-build
+# → target/dictcli (단일 바이너리, ~48MB)
+
+cp target/dictcli ~/.local/bin/
+```
+
+| 아키텍처 | 빌드 방법 | 비고 |
+|----------|-----------|------|
+| x86_64 | 로컬 또는 CI | NixOS 노트북/NUC |
+| aarch64 | 타겟 머신에서 빌드 | Oracle VM 등 ARM 서버 |
+
+> GraalVM native-image는 크로스 컴파일 미지원.
+> aarch64 바이너리는 aarch64 머신에서 `./run.sh native-build` 실행.
+
+### 성능
+
+| | JVM | Native binary |
+|---|---|---|
+| 시작 | ~1.7초 | **0.06초** |
+| lookup | ~1.7초 | **0.06초** |
+| build (48,872건) | ~2.7초 | ~2초 |
+| 의존성 | JDK 필요 | **없음 (단일 파일)** |
+
 ## 기술 스택
 
-- **Clojure** — 데이터 처리, CLI
+- **Clojure** + **GraalVM native-image** — 단일 바이너리 CLI
 - **SQLite** — 인덱스 DB
 - **ten 형식** — glossary 소스 포맷
 - **NixOS** — 개발 환경 (flake.nix)
