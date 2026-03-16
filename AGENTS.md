@@ -38,42 +38,44 @@
 - 파일 확장자: `.txt` (ten 호환)
 - 파일명: Denote 형식 `YYYYMMDDTHHMMSS--제목__glossary.txt`
 
-### SQLite 스키마
+### 데이터 모델 — EDN 트리플 그래프
 
-```sql
--- 용어
-CREATE TABLE terms (
-  id INTEGER PRIMARY KEY,
-  word TEXT NOT NULL,
-  lang TEXT NOT NULL,        -- 'ko', 'en', 'de'
-  definition TEXT,
-  source TEXT,               -- 파일 경로 또는 소스명
-  domain TEXT                -- 'philosophy', 'physics', 'general'...
-);
+코드가 곧 데이터. SQLite가 아니라 `graph.edn` 하나.
 
--- 매핑 (한↔영↔독)
-CREATE TABLE mappings (
-  word_id INTEGER REFERENCES terms(id),
-  target_word TEXT NOT NULL,
-  target_lang TEXT NOT NULL,
-  my_choice BOOLEAN DEFAULT FALSE  -- 내가 선택한 번역어
-);
-
--- 동시출현 (연상맵)
-CREATE TABLE cooccur (
-  word1 TEXT NOT NULL,
-  word2 TEXT NOT NULL,
-  count INTEGER NOT NULL,
-  source TEXT                -- 'saiculture', 'denote'...
-);
-
--- 빈도
-CREATE TABLE freq (
-  word TEXT NOT NULL,
-  count INTEGER NOT NULL,
-  source TEXT NOT NULL
-);
+```clojure
+;; 트리플: [entity relation value]
+["보편" :trans "universal"]
+["보편" :opposite "특수"]
+["보편" :source "20250424T233558"]
 ```
+
+관계 타입:
+| 관계 | 의미 |
+|---|---|
+| `:trans` | 번역/대응 (한↔영) |
+| `:opposite` | 대극/반대 |
+| `:related` | 의미 연결 |
+| `:synonym` | 동의/유사 (같은 언어 내) |
+| `:broader` | 상위 개념 |
+| `:narrower` | 하위 개념 |
+| `:domain` | 소속 영역 |
+| `:source` | 출처 메타노트 ID |
+
+### 트리플 인바리언트 (반드시 준수)
+
+graph.edn의 모든 `[entity relation value]`는 아래를 만족해야 함:
+
+1. **entity**: 문자열. 한글 또는 영어. 단일 개념 (공백 최소화).
+2. **relation**: 키워드. 위 8개만 허용.
+3. **value**:
+   - `:trans` → **`[a-z0-9]` 소문자+숫자만**. 공백/하이픈/대문자/한글 불허. 설명문 불허. **단어만**.
+   - `:source` → Denote identifier (`YYYYMMDDTHHMMSS`)
+   - 그 외 → 자유 문자열
+4. **중복 금지**: 동일 `[entity relation value]` 2회 이상 불허.
+5. **대칭 관계 자동**: `:opposite`, `:synonym`, `:related` → 역방향 자동 추가.
+6. **최대 길이**: value 50자 이하.
+
+검증: `clj -M:run validate` (모든 커밋 전 실행)
 
 ## 파일 구조
 
@@ -81,19 +83,22 @@ CREATE TABLE freq (
 dictcli/
 ├── deps.edn
 ├── flake.nix
-├── README.md
-├── AGENTS.md
+├── graph.edn              # 트리플 그래프 (진실의 원천)
 ├── src/dictcli/
-│   ├── core.clj        # CLI 진입점 (build, lookup, related, guide)
-│   ├── parser.clj      # <<용어>> :: 정의 파서
-│   ├── wordmap.clj     # saiculture wordmap.json 파서
-│   ├── denote.clj      # Denote 파일명에서 태그 추출
-│   ├── db.clj          # SQLite 빌드/쿼리
-│   └── search.clj      # lookup, related, suggest-tags
+│   ├── core.clj           # CLI 진입점 (add, graph, expand, validate...)
+│   ├── graph.clj          # EDN 트리플 스토어, 인덱스, 쿼리
+│   ├── normalize.clj      # 정규화 (소문자, 공백 제거, 복합어 분리)
+│   ├── parser.clj         # <<용어>> :: 정의 ten 파서
+│   ├── db.clj             # [레거시] SQLite
+│   └── wordmap.clj        # saiculture wordmap 파서
 ├── test/dictcli/
-│   └── parser_test.clj
-└── data/                # 테스트용 샘플 glossary
-    └── sample.txt
+│   ├── graph_test.clj     # 트리플 테스트
+│   └── parser_test.clj    # ten 파서 테스트
+└── data/                   # 시드/소스 EDN
+    ├── seed-clusters.edn   # 수작업 4개 클러스터
+    ├── syntopicon.edn      # 신토피콘 한↔영
+    ├── general.edn         # general glossary
+    └── meta-sources.edn    # meta 노트 :source 연결
 ```
 
 ## 개발 가이드

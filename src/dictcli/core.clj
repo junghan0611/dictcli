@@ -4,6 +4,7 @@
    코드가 곧 데이터. EDN 트리플 그래프."
   (:require [dictcli.graph :as g]
             [dictcli.normalize :as norm]
+            [dictcli.validate :as v]
             [clojure.string :as str]
             [clojure.edn :as edn])
   (:gen-class))
@@ -162,6 +163,25 @@
       (println (str "  대문자: " upper (if (zero? upper) " ✅" " ⚠️")))
       (println (str "  공백:   " spaced (if (zero? spaced) " ✅" " ⚠️"))))))
 
+;; ── 커맨드: validate ───────────────────────────────
+
+(defn cmd-validate
+  "graph.edn 인바리언트 검증"
+  []
+  (let [triples (g/load-graph default-graph)
+        result (v/validate-graph triples)]
+    (println (str "🔍 검증: " (:summary result)))
+    (println)
+    (if (:ok? result)
+      (do (println "✅ 모든 인바리언트 통과")
+          (println (str "   :trans " (get-in result [:stats :trans]) "개")))
+      (do (println (str "❌ " (count (:errors result)) "개 위반:"))
+          (println)
+          (doseq [err (:errors result)]
+            (println (v/format-error err)))
+          ;; exit code 1 for CI
+          (System/exit 1)))))
+
 ;; ── 메인 ──────────────────────────────────────────
 
 (defn -main [& args]
@@ -183,6 +203,7 @@
                     (cmd-import (first rest-args))
                     (println "Usage: dictcli import <file.edn>"))
       "normalize" (cmd-normalize)
+      "validate" (cmd-validate)
       ;; 도움말
       (do
         (println "dictcli — 힣의 어휘 연결체")

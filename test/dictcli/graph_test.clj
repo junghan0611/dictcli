@@ -1,6 +1,7 @@
 (ns dictcli.graph-test
   (:require [clojure.test :refer [deftest is testing]]
-            [dictcli.graph :as g]))
+            [dictcli.graph :as g]
+            [dictcli.validate :as v]))
 
 (def sample-triples
   [["보편"   :trans    "universal"]
@@ -75,3 +76,35 @@
       (is (= 7 (:triples s)))
       (is (pos? (:words s)))
       (is (= 1 (:clusters s))))))
+
+;; ── 인바리언트 검증 ──────────────────────────────
+
+(deftest test-validate-ok
+  (testing "유효한 트리플"
+    (let [result (v/validate-graph sample-triples)]
+      (is (:ok? result))
+      (is (zero? (count (:errors result)))))))
+
+(deftest test-validate-bad-trans
+  (testing "잘못된 :trans — 대문자"
+    (let [result (v/validate-graph [["보편" :trans "Universal"]])]
+      (is (not (:ok? result)))
+      (is (= :trans-uppercase (:error (first (:errors result)))))))
+  (testing "잘못된 :trans — 공백"
+    (let [result (v/validate-graph [["보편" :trans "universal particular"]])]
+      (is (not (:ok? result)))))
+  (testing "잘못된 :trans — 한글"
+    (let [result (v/validate-graph [["보편" :trans "보편학"]])]
+      (is (not (:ok? result)))))
+  (testing "잘못된 :trans — 하이픈"
+    (let [result (v/validate-graph [["범용" :trans "general-purpose"]])]
+      (is (not (:ok? result))))))
+
+(deftest test-validate-graph-edn
+  (testing "실제 graph.edn 인바리언트 통과"
+    (let [triples (g/load-graph "graph.edn")
+          result (v/validate-graph triples)]
+      (is (:ok? result)
+          (str "graph.edn 검증 실패: "
+               (count (:errors result)) "개 에러\n"
+               (clojure.string/join "\n" (map v/format-error (:errors result))))))))
