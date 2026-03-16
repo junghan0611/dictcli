@@ -9,7 +9,10 @@
             [clojure.edn :as edn])
   (:gen-class))
 
-(def default-graph "graph.edn")
+(def default-graph
+  "graph.edn 경로. DICTCLI_GRAPH 환경변수 또는 CWD 상대."
+  (or (System/getenv "DICTCLI_GRAPH")
+      "graph.edn"))
 
 ;; ── 그래프 로드 헬퍼 ──────────────────────────────
 

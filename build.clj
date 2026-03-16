@@ -11,6 +11,14 @@
 (defn uber [_]
   (clean nil)
   (b/copy-dir {:src-dirs ["src"] :target-dir class-dir})
-  (b/compile-clj {:basis @basis :src-dirs ["src"] :class-dir class-dir})
-  (b/uber {:class-dir class-dir :uber-file uber-file :basis @basis
-           :main 'dictcli.core}))
+  (b/compile-clj {:basis     @basis
+                   :src-dirs  ["src"]
+                   :class-dir class-dir
+                   :ns-compile '[dictcli.core
+                                 dictcli.graph
+                                 dictcli.normalize
+                                 dictcli.validate]})
+  (b/uber {:class-dir class-dir
+           :uber-file uber-file
+           :basis     @basis
+           :main      'dictcli.core}))
