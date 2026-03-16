@@ -3,6 +3,7 @@
    
    코드가 곧 데이터. EDN 트리플 그래프."
   (:require [dictcli.graph :as g]
+            [dictcli.normalize :as norm]
             [clojure.string :as str]
             [clojure.edn :as edn])
   (:gen-class))
@@ -141,26 +142,47 @@
       (g/save-graph default-graph merged)
       (println (str "✅ " (count valid) "개 임포트 → 총 " (count merged) "개 트리플")))))
 
+;; ── 커맨드: normalize ──────────────────────────────
+
+(defn cmd-normalize
+  "graph.edn 정규화 — Denote 태그 호환"
+  []
+  (let [triples (g/load-graph default-graph)
+        _ (println (str "📋 정규화 전: " (count triples) "개 트리플"))
+        normalized (norm/normalize-triples triples)]
+    (g/save-graph default-graph normalized)
+    (println)
+    (println (str "✅ 정규화 완료: " (count normalized) "개 트리플"))
+    ;; 검증
+    (let [trans-vals (->> normalized
+                         (filter #(= (second %) :trans))
+                         (map #(nth % 2)))
+          upper (count (filter #(re-find #"[A-Z]" %) trans-vals))
+          spaced (count (filter #(re-find #" " %) trans-vals))]
+      (println (str "  대문자: " upper (if (zero? upper) " ✅" " ⚠️")))
+      (println (str "  공백:   " spaced (if (zero? spaced) " ✅" " ⚠️"))))))
+
 ;; ── 메인 ──────────────────────────────────────────
 
 (defn -main [& args]
   (let [cmd (first args)
         rest-args (rest args)]
     (case cmd
-      "add"     (cmd-add rest-args)
-      "graph"   (if (first rest-args)
-                  (cmd-graph (first rest-args))
-                  (println "Usage: dictcli graph <word>"))
-      "expand"  (if (first rest-args)
-                  (cmd-expand rest-args)
-                  (println "Usage: dictcli expand <word> [--json]"))
-      "cluster" (if (first rest-args)
-                  (cmd-cluster (first rest-args))
-                  (println "Usage: dictcli cluster <meta-id>"))
-      "stats"   (cmd-stats)
-      "import"  (if (first rest-args)
-                  (cmd-import (first rest-args))
-                  (println "Usage: dictcli import <file.edn>"))
+      "add"       (cmd-add rest-args)
+      "graph"     (if (first rest-args)
+                    (cmd-graph (first rest-args))
+                    (println "Usage: dictcli graph <word>"))
+      "expand"    (if (first rest-args)
+                    (cmd-expand rest-args)
+                    (println "Usage: dictcli expand <word> [--json]"))
+      "cluster"   (if (first rest-args)
+                    (cmd-cluster (first rest-args))
+                    (println "Usage: dictcli cluster <meta-id>"))
+      "stats"     (cmd-stats)
+      "import"    (if (first rest-args)
+                    (cmd-import (first rest-args))
+                    (println "Usage: dictcli import <file.edn>"))
+      "normalize" (cmd-normalize)
       ;; 도움말
       (do
         (println "dictcli — 힣의 어휘 연결체")
