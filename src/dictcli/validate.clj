@@ -1,12 +1,19 @@
 (ns dictcli.validate
   "graph.edn 트리플 인바리언트 검증
 
+   ■ 단어 정책: 단어는 하나의 '개념'이다.
+     - 문장이 아니다. 구절이 아니다. 설명이 아니다.
+     - 한글 entity: Denote 타이틀에 단어로 박을 수 있는 것 (조사 빼고)
+     - 영어 :trans value: Denote 영어 태그로 넣을 수 있는 것 [a-z0-9]
+     - 개념이 오염되면 1,2,3층 전부 무너진다.
+
    모든 [entity relation value]는:
-   1. entity: 문자열, 비어있지 않음
-   2. relation: 허용된 키워드
-   3. :trans value → [a-z0-9]만, 50자 이하
-   4. :source value → YYYYMMDDTHHMMSS 형식
-   5. 중복 금지"
+   1. entity: 하나의 개념 단어. 공백/구두점/숫자시작 불허.
+   2. relation: 허용된 키워드 8개만.
+   3. :trans value → [a-z0-9] 소문자+숫자만. 단어만. 설명/한글 불허.
+   4. :source value → YYYYMMDDTHHMMSS 형식.
+   5. 중복 금지.
+   6. 대칭 관계 자동: :opposite, :synonym, :related."
   (:require [clojure.string :as str]
             [dictcli.graph :as g]))
 
@@ -80,6 +87,22 @@
   (when (> (count v) 50)
     {:error :value-too-long :triple triple :length (count v)}))
 
+(defn check-clean-word
+  "entity와 value가 단일 개념 단어인지 (구절/문장 불허)"
+  [[e r v :as triple]]
+  (letfn [(bad-word? [w]
+            (or (re-find #"\s" w)           ;; 공백
+                (> (count w) 15)            ;; 너무 김
+                (re-find #"^\d" w)          ;; 숫자 시작
+                (re-find #"[?!.。？｜,()]" w))) ;; 구두점/괄호
+          ]
+    (cond
+      (bad-word? e)
+      {:error :entity-not-word :triple triple :entity e}
+
+      (and (not= r :source) (bad-word? v))
+      {:error :value-not-word :triple triple :value v})))
+
 ;; ── 전체 검증 ─────────────────────────────────────
 
 (defn validate-triple
@@ -90,7 +113,8 @@
             (check-relation triple)
             (check-trans-value triple)
             (check-source-value triple)
-            (check-value-length triple)]))
+            (check-value-length triple)
+            (check-clean-word triple)]))
 
 (defn validate-graph
   "전체 그래프 검증. {:ok? bool :errors [...] :warnings [...] :stats {...}}"
@@ -134,4 +158,6 @@
     :value-too-long    (str "  ❌ value 길이(" length "): " (pr-str triple))
     :duplicate         (str "  ❌ 중복: " (pr-str triple))
     :invalid-relation  (str "  ❌ 잘못된 관계: " (pr-str triple))
+    :entity-not-word   (str "  ❌ entity 비단어: " (pr-str triple))
+    :value-not-word    (str "  ❌ value 비단어: " (pr-str triple))
     (str "  ❌ " error ": " (pr-str triple))))
