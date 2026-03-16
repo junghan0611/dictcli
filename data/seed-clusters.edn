@@ -1,0 +1,155 @@
+;; seed-clusters.edn — 힣의 메타노트에서 추출한 한↔영 트리플
+;;
+;; 형식: [entity relation value]
+;; 관계 타입:
+;;   :trans     — 번역/대응 (한↔영)
+;;   :opposite  — 대극/반대
+;;   :related   — 의미 연결 (같은 클러스터)
+;;   :synonym   — 동의/유사 (같은 언어 내)
+;;   :broader   — 상위 개념
+;;   :narrower  — 하위 개념
+;;   :domain    — 소속 영역
+;;   :source    — 출처 메타노트 ID
+;;
+;; 출처: ~/sync/org/meta/ 메타노트 실제 구조에서 발굴
+;; 작성: 2026-03-16, agent-config 1층 벤치마크 기반
+
+[
+ ;; =========================================
+ ;; 클러스터 1: 보편-특수 (20250424T233558)
+ ;; title: † #보편 #특수 #범용 #특이
+ ;; tags: :general:particular:purpose:singularity:universal:
+ ;; =========================================
+
+ ;; 한→영 번역
+ ["보편"   :trans    "universal"]
+ ["보편"   :trans    "universalism"]
+ ["특수"   :trans    "particular"]
+ ["특수"   :trans    "special"]
+ ["범용"   :trans    "general-purpose"]
+ ["범용"   :trans    "general"]
+ ["특이"   :trans    "singularity"]
+ ["특이"   :trans    "singular"]
+
+ ;; 대극 쌍
+ ["보편"   :opposite "특수"]
+ ["범용"   :opposite "특이"]
+
+ ;; 같은 클러스터 내 연결
+ ["보편"   :related  "범용"]
+ ["특수"   :related  "특이"]
+
+ ;; 힣의 맥락 연결
+ ["보편"   :related  "파이데이아"]
+ ["파이데이아" :trans "paideia"]
+ ["보편"   :related  "보편학"]
+ ["보편학" :trans    "universalism"]
+ ["보편"   :broader  "추상"]
+ ["추상"   :trans    "abstraction"]
+ ["특수"   :broader  "구체"]
+ ["구체"   :trans    "concretization"]
+
+ ;; Syntopicon 연결
+ ["보편"   :domain   "syntopicon"]
+ ["특수"   :domain   "syntopicon"]
+
+ ;; 출처
+ ["보편"   :source   "20250424T233558"]
+
+
+ ;; =========================================
+ ;; 클러스터 2: 도피-회피 (20240520T150914)
+ ;; title: † #도피 #회피 #탈출 #후퇴 #은둔 #탈주 #도주 #우회
+ ;; tags: :escape:avoidance:
+ ;; =========================================
+
+ ;; 한→영 번역
+ ["도피"   :trans    "escape"]
+ ["도피"   :trans    "flight"]
+ ["회피"   :trans    "avoidance"]
+ ["회피"   :trans    "evasion"]
+ ["탈출"   :trans    "escape"]
+ ["후퇴"   :trans    "withdrawal"]
+ ["은둔"   :trans    "reclusion"]
+ ["은둔"   :trans    "withdrawal"]
+ ["탈주"   :trans    "desertion"]
+ ["도주"   :trans    "flee"]
+ ["우회"   :trans    "detour"]
+ ["우회"   :trans    "bypass"]
+
+ ;; 같은 클러스터 내 연결
+ ["도피"   :synonym  "회피"]
+ ["도피"   :synonym  "탈출"]
+ ["탈주"   :synonym  "도주"]
+ ["후퇴"   :related  "은둔"]
+
+ ;; 출처
+ ["도피"   :source   "20240520T150914"]
+
+
+ ;; =========================================
+ ;; 클러스터 3: 고요-이완 (20250518T142011)
+ ;; title: † #고요 #이완 #멈춤 #한가 #심심 #내면 #침묵 #새벽 #점멸 #조용 #평온 #충만
+ ;; tags: :fulfillment:serenity:silience:
+ ;; =========================================
+
+ ;; 한→영 번역
+ ["고요"   :trans    "serenity"]
+ ["고요"   :trans    "silence"]
+ ["이완"   :trans    "relaxation"]
+ ["멈춤"   :trans    "pause"]
+ ["멈춤"   :trans    "stillness"]
+ ["한가"   :trans    "leisure"]
+ ["심심"   :trans    "boredom"]
+ ["내면"   :trans    "inner"]
+ ["침묵"   :trans    "silence"]
+ ["평온"   :trans    "tranquility"]
+ ["충만"   :trans    "fulfillment"]
+
+ ;; 같은 클러스터 내 연결
+ ["고요"   :synonym  "침묵"]
+ ["고요"   :synonym  "조용"]
+ ["고요"   :related  "평온"]
+ ["한가"   :related  "심심"]
+ ["이완"   :related  "멈춤"]
+ ["충만"   :opposite "심심"]
+
+ ;; 힣의 맥락 연결 (dblock에서)
+ ["고요"   :related  "톨레"]
+ ["톨레"   :trans    "Eckhart Tolle"]
+ ["심심"   :related  "벤야민"]
+ ["벤야민" :trans    "Walter Benjamin"]
+ ["심심"   :related  "호모오티오수스"]
+
+ ;; 출처
+ ["고요"   :source   "20250518T142011"]
+
+
+ ;; =========================================
+ ;; 클러스터 4: 소통-불통 (20241006T081807)
+ ;; title: † #소통 #불통 #대화 #숙론 #문자 #연락 #통화 #대담 #면담
+ ;; tags: :communication:empathie:discourse:
+ ;; =========================================
+
+ ;; 한→영 번역
+ ["소통"   :trans    "communication"]
+ ["불통"   :trans    "miscommunication"]
+ ["대화"   :trans    "dialogue"]
+ ["대화"   :trans    "discourse"]
+ ["숙론"   :trans    "deliberation"]
+ ["대담"   :trans    "interview"]
+ ["면담"   :trans    "interview"]
+ ["면담"   :trans    "meeting"]
+ ["공감"   :trans    "empathy"]
+
+ ;; 대극 쌍
+ ["소통"   :opposite "불통"]
+
+ ;; 같은 클러스터 내 연결
+ ["대화"   :synonym  "대담"]
+ ["대담"   :related  "면담"]
+ ["소통"   :related  "공감"]
+
+ ;; 출처
+ ["소통"   :source   "20241006T081807"]
+]
