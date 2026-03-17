@@ -9,8 +9,9 @@
             [clojure.edn :as edn])
   (:gen-class))
 
-(def default-graph
-  "graph.edn 경로. DICTCLI_GRAPH 환경변수 또는 CWD 상대."
+(defn graph-path
+  "graph.edn 경로. 런타임에 DICTCLI_GRAPH 환경변수 확인."
+  []
   (or (System/getenv "DICTCLI_GRAPH")
       "graph.edn"))
 
@@ -18,7 +19,7 @@
 
 (defn load-graph
   "graph.edn 로드 + 인덱스 빌드"
-  ([] (load-graph default-graph))
+  ([] (load-graph (graph-path)))
   ([path]
    (let [triples (g/load-graph path)]
      {:triples triples
@@ -39,10 +40,10 @@
           (println "  관계: " (str/join " " (map #(str ":" (name %)) (keys g/relation-types)))))
       (let [rel (keyword (str/replace rel-str #"^:" ""))
             triple [entity rel value]
-            triples (g/load-graph default-graph)
+            triples (g/load-graph (graph-path))
             new-triples (g/add-triple triples triple)
             added (- (count new-triples) (count triples))]
-        (g/save-graph default-graph new-triples)
+        (g/save-graph (graph-path) new-triples)
         (println (str "✅ " (pr-str triple)))
         (when (> added 1)
           (println (str "   + 역방향 자동 추가 (" added "개)")))
@@ -112,7 +113,7 @@
 (defn cmd-stats
   "그래프 통계"
   []
-  (let [triples (g/load-graph default-graph)
+  (let [triples (g/load-graph (graph-path))
         s (g/stats triples)]
     (println "📊 그래프 통계:")
     (println (str "  트리플:   " (:triples s)))
@@ -136,14 +137,14 @@
   [path]
   (if-not (.exists (java.io.File. (str path)))
     (println (str "❌ 파일 없음: " path))
-    (let [existing (g/load-graph default-graph)
+    (let [existing (g/load-graph (graph-path))
           new-triples (g/load-graph path)
           valid (filter g/valid-triple? new-triples)
           invalid (remove g/valid-triple? new-triples)
           merged (g/add-triples existing valid)]
       (when (seq invalid)
         (println (str "⚠️  잘못된 트리플 " (count invalid) "개 건너뜀")))
-      (g/save-graph default-graph merged)
+      (g/save-graph (graph-path) merged)
       (println (str "✅ " (count valid) "개 임포트 → 총 " (count merged) "개 트리플")))))
 
 ;; ── 커맨드: normalize ──────────────────────────────
@@ -151,10 +152,10 @@
 (defn cmd-normalize
   "graph.edn 정규화 — Denote 태그 호환"
   []
-  (let [triples (g/load-graph default-graph)
+  (let [triples (g/load-graph (graph-path))
         _ (println (str "📋 정규화 전: " (count triples) "개 트리플"))
         normalized (norm/normalize-triples triples)]
-    (g/save-graph default-graph normalized)
+    (g/save-graph (graph-path) normalized)
     (println)
     (println (str "✅ 정규화 완료: " (count normalized) "개 트리플"))
     ;; 검증
@@ -171,7 +172,7 @@
 (defn cmd-validate
   "graph.edn 인바리언트 검증"
   []
-  (let [triples (g/load-graph default-graph)
+  (let [triples (g/load-graph (graph-path))
         result (v/validate-graph triples)]
     (println (str "🔍 검증: " (:summary result)))
     (println)
