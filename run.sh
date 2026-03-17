@@ -43,7 +43,76 @@ case "$CMD" in
     ;;
 
   ## --- 빌드 ---
+  build)
+    # 표준 빌드 커맨드 — agent-config에서 Go CLI와 동일하게 호출
+    # Usage: ./run.sh build [--output /path/to/binary] [--force]
+    OUTPUT=""
+    FORCE=false
+    ARGS=("$@")
+    i=0
+    while [ $i -lt ${#ARGS[@]} ]; do
+      case "${ARGS[$i]}" in
+        --output) i=$((i+1)); OUTPUT="${ARGS[$i]:-}" ;;
+        --force)  FORCE=true ;;
+        *)        [ -z "$OUTPUT" ] && OUTPUT="${ARGS[$i]}" ;;
+      esac
+      i=$((i+1))
+    done
+
+    # 캐시 확인 — force가 아니고 바이너리가 있으면 복사만
+    if [ "$FORCE" = false ] && [ -f "${BINARY}" ]; then
+      echo "✅ 캐시 사용: ${BINARY}"
+    else
+      # nix develop 안에서 빌드 (native-image 필요)
+      # FHS 환경에서 빌드 — 바이너리가 표준 경로에 링크됨 (Docker 호환)
+      NI_ARGS="--initialize-at-build-time --no-fallback -H:+ReportExceptionStackTraces"
+      NI_ARGS="$NI_ARGS -H:Name=dictcli-${ARCH} -jar target/dictcli.jar -o ${BINARY}"
+
+      if command -v native-image &>/dev/null; then
+        echo "=== GraalVM native-image 빌드 (${ARCH}) ==="
+        clj -T:build uber
+        # shellcheck disable=SC2086
+        native-image $NI_ARGS
+      else
+        # FHS 환경 사용 — 바이너리가 /lib64/ld-linux... 표준 링크
+        FHS_BIN="$(nix build .#fhs --no-link --print-out-paths 2>/dev/null)/bin/dictcli-build"
+        if [ -x "$FHS_BIN" ]; then
+          echo "=== FHS 환경 → native-image 빌드 (${ARCH}) ==="
+          "$FHS_BIN" -c "cd $(pwd) && clj -T:build uber && native-image $NI_ARGS"
+        else
+          echo "=== nix develop → native-image 빌드 (${ARCH}) ==="
+          nix develop --command bash -c "cd $(pwd) && clj -T:build uber && native-image $NI_ARGS"
+        fi
+      fi
+      # patchelf — Nix store 경로 → 표준 경로 (Docker/non-NixOS 호환)
+      if command -v patchelf &>/dev/null; then
+        INTERP="/lib64/ld-linux-x86-64.so.2"
+        [ "$ARCH" = "aarch64" ] && INTERP="/lib/ld-linux-aarch64.so.1"
+        patchelf --set-interpreter "$INTERP" "${BINARY}" 2>/dev/null || true
+        patchelf --remove-rpath "${BINARY}" 2>/dev/null || true
+      elif nix develop --command patchelf --version &>/dev/null 2>&1; then
+        nix develop --command bash -c "
+          INTERP='/lib64/ld-linux-x86-64.so.2'
+          [ '${ARCH}' = 'aarch64' ] && INTERP='/lib/ld-linux-aarch64.so.1'
+          patchelf --set-interpreter \"\$INTERP\" '${BINARY}' 2>/dev/null || true
+          patchelf --remove-rpath '${BINARY}' 2>/dev/null || true
+        "
+      fi
+      echo "  ✅ ${BINARY} ($(du -h "${BINARY}" | cut -f1))"
+    fi
+
+    # 스모크 테스트
+    DICTCLI_GRAPH=graph.edn "${BINARY}" validate 2>&1 | tail -1
+
+    # --output 지정 시 복사
+    if [ -n "$OUTPUT" ]; then
+      cp "${BINARY}" "$OUTPUT"
+      echo "→ $OUTPUT"
+    fi
+    ;;
+
   native-build)
+    # 직접 빌드 (nix develop 안에서 호출)
     echo "=== GraalVM native-image 빌드 (${ARCH}) ==="
 
     # 1. uberjar
@@ -117,8 +186,9 @@ case "$CMD" in
     echo "  init                         시드 데이터로 초기화"
     echo ""
     echo "Build:"
-    echo "  native-build                 GraalVM native binary (${ARCH})"
-    echo "  jar-build                    JVM uberjar (옵션)"
+    echo "  build [--output PATH] [--force]  표준 빌드 (FHS, Docker 호환)"
+    echo "  native-build                     GraalVM 직접 (nix develop 안에서)"
+    echo "  jar-build                        JVM uberjar"
     echo ""
     echo "관계 타입:"
     echo "  :trans     번역/대응 (한↔영)"
