@@ -104,10 +104,17 @@ case "$CMD" in
     # 스모크 테스트
     DICTCLI_GRAPH=graph.edn "${BINARY}" validate 2>&1 | tail -1
 
-    # --output 지정 시 복사
+    # --output 지정 시 바이너리 + graph.edn 세트 복사
     if [ -n "$OUTPUT" ]; then
       cp "${BINARY}" "$OUTPUT"
-      echo "→ $OUTPUT"
+      # graph.edn도 같은 디렉토리에 동봉 (바이너리가 CWD의 graph.edn에 의존)
+      OUTPUT_DIR="$(dirname "$OUTPUT")"
+      if [ -f "graph.edn" ]; then
+        cp graph.edn "$OUTPUT_DIR/graph.edn"
+        echo "→ $OUTPUT + graph.edn"
+      else
+        echo "→ $OUTPUT (⚠️ graph.edn 없음)"
+      fi
     fi
     ;;
 
