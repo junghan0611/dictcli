@@ -1,7 +1,7 @@
 ;; graph.edn — 힣의 어휘 연결체
 ;; 형식: [entity relation value]
-;; 생성: 2026-03-25T16:44:27.611579337
-;; 트리플: 3689개
+;; 생성: 2026-03-25T17:24:23.807495752
+;; 트리플: 3701개
 
 [
  ["보편" :trans "universal"]
@@ -3693,4 +3693,16 @@
  ["동시성" :trans "synchronicity"]
  ["인신공격" :trans "adhominem"]
  ["초험" :trans "transcendent"]
+ ["자기표현주의" :trans "selfexpressionism"]
+ ["비폭력대화" :trans "nonviolentcommunication"]
+ ["항존주의" :trans "perennialism"]
+ ["패러다임전환" :trans "paradigmshift"]
+ ["컴퓨팅사고력" :trans "computationalthinking"]
+ ["회색돌기법" :trans "greyrockmethod"]
+ ["파이데이아제안" :trans "paideiaproposal"]
+ ["위대한저서" :trans "greatbooks"]
+ ["완화" :trans "mitigation"]
+ ["과학혁명" :trans "scientificrevolution"]
+ ["구성론" :trans "constructionism"]
+ ["가상현실" :trans "virtualreality"]
 ]
