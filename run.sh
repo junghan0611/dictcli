@@ -41,6 +41,31 @@ case "$CMD" in
     rm -f graph.edn
     clj -M:run import data/seed-clusters.edn
     ;;
+  rebuild)
+    echo "=== graph.edn 재구성 (모든 data/*.edn) ==="
+    rm -f graph.edn
+    # 순서: 시드 → 신토피콘 → 일반 → 소스 → 철학 → 실무 → harvest-1 → harvest-2 → kengdic
+    for edn in \
+      data/seed-clusters.edn \
+      data/syntopicon.edn \
+      data/general.edn \
+      data/meta-sources.edn \
+      data/philosophy.edn \
+      data/practical.edn \
+      data/meta-harvest-1.edn \
+      data/meta-harvest-2.edn \
+      data/kengdic-coverage.edn; do
+      if [ -f "$edn" ]; then
+        echo "  → $edn"
+        clj -M:run import "$edn"
+      fi
+    done
+    echo ""
+    echo "=== 검증 ==="
+    clj -M:run validate
+    echo ""
+    clj -M:run stats
+    ;;
 
   ## --- 빌드 ---
   build)
@@ -191,6 +216,7 @@ case "$CMD" in
     echo "  validate                     인바리언트 검증"
     echo "  normalize                    정규화"
     echo "  init                         시드 데이터로 초기화"
+    echo "  rebuild                      graph.edn 재구성 (모든 data/*.edn)"
     echo ""
     echo "Build:"
     echo "  build [--output PATH] [--force]  표준 빌드 (FHS, Docker 호환)"
