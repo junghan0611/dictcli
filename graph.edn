@@ -1,7 +1,7 @@
 ;; graph.edn — 힣의 어휘 연결체
 ;; 형식: [entity relation value]
-;; 생성: 2026-03-25T16:29:02.854356976
-;; 트리플: 3667개
+;; 생성: 2026-03-25 14:29:08.676978
+;; 트리플: 3639개
 
 [
  ["보편" :trans "universal"]
@@ -3643,32 +3643,4 @@
  ["흔적" :trans "traces"]
  ["흔적" :trans "signs"]
  ["흔적" :trans "evidences"]
- ["정언" :trans "categorical"]
- ["가언" :trans "hypothetical"]
- ["선언" :trans "disjunctive"]
- ["개연" :trans "problematic"]
- ["명증" :trans "apodeictic"]
- ["테크네" :trans "techne"]
- ["연역법" :trans "deduction"]
- ["술어논리" :trans "predicatelogic"]
- ["삼단논법" :trans "syllogism"]
- ["초월적" :trans "transcendental"]
- ["현상학" :trans "phenomenology"]
- ["구조주의" :trans "structuralism"]
- ["언어게임" :trans "languagegame"]
- ["언어적전환" :trans "linguisticturn"]
- ["실용주의" :trans "pragmatism"]
- ["경험주의" :trans "empiricism"]
- ["관념론" :trans "idealism"]
- ["미학" :trans "aesthetics"]
- ["숭고" :trans "sublime"]
- ["개념어" :trans "conceptword"]
- ["명제논리" :trans "proplogic"]
- ["양화논리" :trans "quantlogic"]
- ["논리실증주의" :trans "positivism"]
- ["후기구조주의" :trans "poststructure"]
- ["계급의식" :trans "classconscious"]
- ["일상언어분석" :trans "ordinarylang"]
- ["귀류법" :trans "reductio"]
- ["집단무의식" :trans "collectiveuncon"]
 ]
