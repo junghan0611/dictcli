@@ -100,7 +100,8 @@
       (bad-word? e)
       {:error :entity-not-word :triple triple :entity e}
 
-      (and (not= r :source) (bad-word? v))
+      ;; :trans 값은 check-trans-value에서 이미 완전 검증됨 — 여기선 제외
+      (and (not= r :source) (not= r :trans) (bad-word? v))
       {:error :value-not-word :triple triple :value v})))
 
 ;; ── 전체 검증 ─────────────────────────────────────
