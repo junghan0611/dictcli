@@ -38,6 +38,8 @@ case "$CMD" in
     ;;
   stem)
     # Kiwi JNI 필요 → JVM 전용 (native-image 불가)
+    # 단건: ./run.sh stem "문장" [--tokens] [--json]
+    # 배치: echo -e "문장1\n문장2" | ./run.sh stem --batch
     clj -Sdeps '{:deps {kr.pe.bab2min/kiwi-java {:local/root "lib/kiwi-java-v0.23.0-lnx-x86-64.jar"}}}' \
       -M -m dictcli.stem-main "$@"
     ;;
