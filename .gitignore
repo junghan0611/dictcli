@@ -10,3 +10,4 @@ result
 # Kiwi (JNI native, 대용량)
 lib/*.jar
 models/
+graph.edn.bak
