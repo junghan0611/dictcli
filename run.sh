@@ -36,6 +36,11 @@ case "$CMD" in
   normalize)
     clj -M:run normalize
     ;;
+  stem)
+    # Kiwi JNI 필요 → JVM 전용 (native-image 불가)
+    clj -Sdeps '{:deps {kr.pe.bab2min/kiwi-java {:local/root "lib/kiwi-java-v0.23.0-lnx-x86-64.jar"}}}' \
+      -M -m dictcli.stem-main "$@"
+    ;;
   init)
     echo "=== 시드 데이터 임포트 ==="
     rm -f graph.edn
@@ -215,6 +220,7 @@ case "$CMD" in
     echo "  import <file.edn>            시드 데이터 병합"
     echo "  validate                     인바리언트 검증"
     echo "  normalize                    정규화"
+    echo "  stem <\"문장\"> [--tokens]      Kiwi 어간 추출 + expand (JVM)"
     echo "  init                         시드 데이터로 초기화"
     echo "  rebuild                      graph.edn 재구성 (모든 data/*.edn)"
     echo ""

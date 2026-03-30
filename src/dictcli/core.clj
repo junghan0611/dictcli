@@ -9,6 +9,9 @@
             [clojure.edn :as edn])
   (:gen-class))
 
+;; stem 네임스는 :kiwi alias로 실행시만 로드 (JNI 의존)
+(def ^:private stem-ns (delay (require 'dictcli.stem) (find-ns 'dictcli.stem)))
+
 (defn graph-path
   "graph.edn 경로. 런타임에 DICTCLI_GRAPH 환경변수 확인."
   []
@@ -186,6 +189,34 @@
           ;; exit code 1 for CI
           (System/exit 1)))))
 
+;; ── 커맨드: stem ─────────────────────────────────
+
+(defn cmd-stem
+  "Kiwi 형태소 분석 → 명사 어간 추출 + expand 확장.
+   사용법: dictcli stem <문장> [--tokens]"
+  [args]
+  (let [text (first args)
+        tokens? (some #{"--tokens"} args)]
+    (if (nil? text)
+      (println "Usage: dictcli stem <\"문장\"> [--tokens]")
+      (do
+        @stem-ns  ;; lazy load Kiwi
+        (let [stem-fn (ns-resolve @stem-ns 'stems)
+              tok-fn  (ns-resolve @stem-ns 'tokenize)]
+          (when tokens?
+            (println "🔍 토큰:")
+            (doseq [t (tok-fn text)]
+              (println (str "  " (:form t) "\t" (name (:tag t))))))
+          (let [noun-stems (stem-fn text)]
+            (println (str "🌱 stem: " (str/join ", " noun-stems)))
+            ;; expand 연결
+            (let [{:keys [index]} (load-graph)]
+              (doseq [s noun-stems]
+                (let [expanded (g/expand index s)]
+                  (when (seq expanded)
+                    (println (str "  🔍 " s " → " (str/join ", " expanded))))))
+            (println (str "📊 어간 " (count noun-stems) "개"))))))))
+
 ;; ── 메인 ──────────────────────────────────────────
 
 (defn -main [& args]
@@ -208,6 +239,7 @@
                     (println "Usage: dictcli import <file.edn>"))
       "normalize" (cmd-normalize)
       "validate" (cmd-validate)
+      "stem"     (cmd-stem rest-args)
       ;; 도움말
       (do
         (println "dictcli — 힣의 어휘 연결체")
@@ -219,7 +251,8 @@
         (println "  dictcli cluster <meta-id>            메타노트 클러스터")
         (println "  dictcli stats                        그래프 통계")
         (println "  dictcli import <file.edn>            시드 데이터 병합")
+        (println "  dictcli stem <\"문장\"> [--tokens]   Kiwi 어간 추출 + expand")
         (println)
         (println "관계 타입:")
         (doseq [[k v] (sort-by key g/relation-types)]
-          (println (str "  :" (name k) "  — " v)))))))
+          (println (str "  :" (name k) "  — " v))))))))

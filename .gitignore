@@ -5,3 +5,8 @@ target/
 .clj-kondo/
 .lsp/
 result
+.claude
+
+# Kiwi (JNI native, 대용량)
+lib/*.jar
+models/
