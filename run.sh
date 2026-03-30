@@ -41,8 +41,43 @@ case "$CMD" in
     # 단건: ./run.sh stem "문장" [--tokens] [--json]
     # 배치: echo -e "문장1\n문장2" | ./run.sh stem --batch
     # 서버: ./run.sh stem --serve [port]  (쿼리당 ~1ms)
-    clj -Sdeps '{:deps {kr.pe.bab2min/kiwi-java {:local/root "lib/kiwi-java-v0.23.0-lnx-x86-64.jar"}}}' \
+    KIWI_JAR="lib/kiwi-java-v0.23.0-lnx-x86-64.jar"
+    [ "$ARCH" = "aarch64" ] && KIWI_JAR="lib/kiwi-java-v0.23.0-lnx-aarch64.jar"
+    if [ ! -f "$KIWI_JAR" ]; then
+      echo "❌ $KIWI_JAR 없음. ./run.sh stem-setup 으로 다운로드"
+      exit 1
+    fi
+    clj -Sdeps "{:deps {kr.pe.bab2min/kiwi-java {:local/root \"$KIWI_JAR\"}}}" \
       -M -m dictcli.stem-main "$@"
+    ;;
+  stem-setup)
+    # Kiwi jar + 모델 다운로드 (아키텍처 자동 감지)
+    KIWI_VER="v0.23.0"
+    case "$ARCH" in
+      x86_64)  KIWI_SUFFIX="lnx-x86-64" ;;
+      aarch64) KIWI_SUFFIX="lnx-aarch64" ;;
+      *)       echo "❌ 지원 안 하는 아키텍처: $ARCH"; exit 1 ;;
+    esac
+    mkdir -p lib models
+    KIWI_JAR="lib/kiwi-java-${KIWI_VER}-${KIWI_SUFFIX}.jar"
+    if [ ! -f "$KIWI_JAR" ]; then
+      echo "⬇️  KiwiJava jar ($KIWI_SUFFIX)..."
+      curl -sL -o "$KIWI_JAR" \
+        "https://github.com/bab2min/Kiwi/releases/download/${KIWI_VER}/kiwi-java-${KIWI_VER}-${KIWI_SUFFIX}.jar"
+      echo "  ✅ $KIWI_JAR ($(du -h "$KIWI_JAR" | cut -f1))"
+    else
+      echo "✅ jar 이미 있음: $KIWI_JAR"
+    fi
+    if [ ! -d "models/models" ]; then
+      echo "⬇️  Kiwi 모델 (105MB)..."
+      curl -sL "https://github.com/bab2min/Kiwi/releases/download/${KIWI_VER}/kiwi_model_${KIWI_VER}_base.tgz" \
+        | tar -xzf - -C models/
+      echo "  ✅ models/ ($(du -sh models/ | cut -f1))"
+    else
+      echo "✅ 모델 이미 있음: models/"
+    fi
+    echo ""
+    echo "테스트: ./run.sh stem \"설계했다\""
     ;;
   init)
     echo "=== 시드 데이터 임포트 ==="
