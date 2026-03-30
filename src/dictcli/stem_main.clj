@@ -9,6 +9,7 @@
    - 배치: dictcli stem --batch < input.txt  (줄 단위 stdin → JSON stdout)
    - 주입: dictcli stem inject"
   (:require [dictcli.stem :as stem]
+            [dictcli.stem-server :as server]
             [dictcli.graph :as g]
             [dictcli.core :as core]
             [clojure.string :as str]
@@ -86,6 +87,13 @@
       "--batch"
       (run-batch!)
 
+      ;; serve: 상주 소켓 서버 (쿼리당 ~1ms)
+      "--serve"
+      (let [port (if-let [p (first rest-args)]
+                   (Integer/parseInt p)
+                   server/DEFAULT_PORT)]
+        (server/serve! port))
+
       ;; 기본: 단건 stem 분석
       (let [text subcmd
             tokens? (some #{"--tokens"} rest-args)
@@ -94,6 +102,7 @@
           (do
             (println "Usage: dictcli stem <\"문장\"> [--tokens] [--json]")
             (println "       dictcli stem --batch          stdin 배치 (인덱싱용)")
+            (println "       dictcli stem --serve [port]    소켓 서버 (쿼리당 ~1ms)")
             (println "       dictcli stem inject           사전 주입 테스트")
             (println "  예: dictcli stem \"설계했다\"")
             (println "  예: dictcli stem \"검색증강생성을 구현했다\" --tokens")
