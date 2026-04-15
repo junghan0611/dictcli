@@ -127,10 +127,17 @@ case "$CMD" in
       i=$((i+1))
     done
 
-    # 캐시 확인 — force가 아니고 바이너리가 있으면 복사만
+    # 캐시 확인 — force가 아니고 바이너리가 있고 validate 통과하면 재사용
     if [ "$FORCE" = false ] && [ -f "${BINARY}" ]; then
-      echo "✅ 캐시 사용: ${BINARY}"
-    else
+      if DICTCLI_GRAPH=graph.edn "${BINARY}" validate &>/dev/null; then
+        echo "✅ 캐시 사용: ${BINARY}"
+      else
+        echo "⚠ 캐시 깨짐 (validate 실패), 재빌드"
+        rm -f "${BINARY}"
+      fi
+    fi
+
+    if [ ! -f "${BINARY}" ]; then
       # nix develop 안에서 빌드 (native-image 필요)
       # FHS 환경에서 빌드 — 바이너리가 표준 경로에 링크됨 (Docker 호환)
       NI_ARGS="--initialize-at-build-time --no-fallback -H:+ReportExceptionStackTraces"
@@ -153,18 +160,23 @@ case "$CMD" in
         fi
       fi
       # patchelf — Nix store 경로 → 표준 경로 (Docker/non-NixOS 호환)
-      if command -v patchelf &>/dev/null; then
-        INTERP="/lib64/ld-linux-x86-64.so.2"
-        [ "$ARCH" = "aarch64" ] && INTERP="/lib/ld-linux-aarch64.so.1"
-        patchelf --set-interpreter "$INTERP" "${BINARY}" 2>/dev/null || true
-        patchelf --remove-rpath "${BINARY}" 2>/dev/null || true
-      elif nix develop --command patchelf --version &>/dev/null 2>&1; then
-        nix develop --command bash -c "
-          INTERP='/lib64/ld-linux-x86-64.so.2'
-          [ '${ARCH}' = 'aarch64' ] && INTERP='/lib/ld-linux-aarch64.so.1'
-          patchelf --set-interpreter \"\$INTERP\" '${BINARY}' 2>/dev/null || true
-          patchelf --remove-rpath '${BINARY}' 2>/dev/null || true
-        "
+      # NixOS에서는 건너뛰기: nix store 인터프리터가 정상, 표준 경로는 없음
+      if [ ! -f /etc/NIXOS ]; then
+        if command -v patchelf &>/dev/null; then
+          INTERP="/lib64/ld-linux-x86-64.so.2"
+          [ "$ARCH" = "aarch64" ] && INTERP="/lib/ld-linux-aarch64.so.1"
+          patchelf --set-interpreter "$INTERP" "${BINARY}" 2>/dev/null || true
+          patchelf --remove-rpath "${BINARY}" 2>/dev/null || true
+        elif nix develop --command patchelf --version &>/dev/null 2>&1; then
+          nix develop --command bash -c "
+            INTERP='/lib64/ld-linux-x86-64.so.2'
+            [ '${ARCH}' = 'aarch64' ] && INTERP='/lib/ld-linux-aarch64.so.1'
+            patchelf --set-interpreter \"\$INTERP\" '${BINARY}' 2>/dev/null || true
+            patchelf --remove-rpath '${BINARY}' 2>/dev/null || true
+          "
+        fi
+      else
+        echo "  NixOS: patchelf 건너뛰기 (nix store 인터프리터 유지)"
       fi
       echo "  ✅ ${BINARY} ($(du -h "${BINARY}" | cut -f1))"
     fi
