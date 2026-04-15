@@ -1,161 +1,172 @@
-# dictcli AGENT 가이드
+# dictcli AGENT Guide
 
-## 프로젝트 개요
+## Project Overview
 
-- **리포지토리**: junghan0611/dictcli
-- **목적**: 개인 어휘 그래프 — 한↔영 크로스링귀얼 쿼리 확장 + 한국어 형태소 분석
-- **언어**: Clojure
-- **데이터 포맷**: EDN 트리플 그래프 (`graph.edn`)
+- **Repository**: junghan0611/dictcli
+- **Purpose**: Personal vocabulary graph — Korean↔English cross-lingual query expansion + Korean morphological analysis
+- **Language**: Clojure
+- **Data format**: EDN triple graph (`graph.edn`, ~3,972 triples)
 
-## 아키텍처 — 이중 실행 모드
+## Architecture — Dual Execution Mode
 
 ```
 dictcli
-├─ Native Binary (GraalVM)     → expand, graph, stats, validate, ... (~9ms)
-│   └─ core.clj (-main)        → gen-class, stem 코드 없음
+├─ Native Binary (GraalVM)     → expand, graph, stats, validate  (~9ms)
+│   └─ core.clj (-main)        → no stem code
 │
-└─ JVM Mode (clj + Kiwi JNI)   → stem only (~2.5s 시작)
-    └─ stem_main.clj (-main)   → --batch, --serve, 단건
+└─ JVM Mode (clj + Kiwi JNI)   → stem only (~2.5s startup)
+    └─ stem_main.clj (-main)   → --batch, --serve, single
 ```
 
-- **Native binary**: 에이전트가 knowledge_search 쿼리 확장 시 호출. 9ms.
-- **JVM stem**: andenken 인덱싱 파이프라인에서 배치 호출. Kiwi JNI가 native-image 불가.
-- **core.clj에 stem 관련 코드를 넣지 말 것.** stem은 stem_main.clj에서만.
+- **Native binary**: called by agents during knowledge_search query expansion. 9ms cold start.
+- **JVM stem**: batch invocation from the andenken indexing pipeline. Kiwi JNI is incompatible with native-image.
+- **Never mix**: do not put stem-related code in `core.clj`. Stem lives in `stem_main.clj` only.
 
-## 핵심 개념
+## Core Concepts
 
-### 데이터 모델 — EDN 트리플 그래프
+### Data Model — EDN Triple Graph
 
-코드가 곧 데이터. `graph.edn` 하나.
+Code is data. Single source of truth: `graph.edn`.
 
 ```clojure
-;; 트리플: [entity relation value]
+;; Triple: [entity relation value]
 ["보편" :trans "universal"]
 ["보편" :opposite "특수"]
 ["보편" :source "20250424T233558"]
 ```
 
-관계 타입:
-| 관계 | 의미 |
+| Relation | Meaning |
 |---|---|
-| `:trans` | 번역/대응 (한↔영) |
-| `:opposite` | 대극/반대 |
-| `:related` | 의미 연결 |
-| `:synonym` | 동의/유사 (같은 언어 내) |
-| `:broader` | 상위 개념 |
-| `:narrower` | 하위 개념 |
-| `:domain` | 소속 영역 |
-| `:source` | 출처 메타노트 ID |
+| `:trans` | Translation/mapping (Korean↔English) |
+| `:opposite` | Antonym / polar opposite |
+| `:related` | Semantic connection |
+| `:synonym` | Same-language near-synonym |
+| `:broader` | Hypernym |
+| `:narrower` | Hyponym |
+| `:domain` | Domain / field |
+| `:source` | Denote note ID (origin) |
 
-### 트리플 인바리언트 (반드시 준수)
+### Triple Invariants (must be respected)
 
-**단어 정책: 단어는 하나의 '개념'이다.**
-- 문장이 아니다. 구절이 아니다. 설명이 아니다.
-- 한글 entity: Denote 타이틀에 단어로 박을 수 있는 것 (조사 빼고)
-- 영어 :trans value: Denote 영어 태그로 넣을 수 있는 것 `[a-z0-9]`
-- **개념이 오염되면 1,2,3층 전부 무너진다.**
+**Word policy: a word is a single concept.**
+- Not a sentence. Not a phrase. Not an explanation.
+- Korean entity: something usable as a Denote title word (no particles)
+- English `:trans` value: something usable as a Denote English tag `[a-z0-9]`
+- **Contaminating a concept collapses all three layers.**
 
-graph.edn의 모든 `[entity relation value]`는 아래를 만족해야 함:
+All `[entity relation value]` in graph.edn must satisfy:
 
-1. **entity**: 하나의 개념 단어. 공백/구두점/숫자시작/특수문자 불허.
-2. **relation**: 키워드. 위 8개만 허용.
+1. **entity**: one concept word — no spaces, punctuation, digit-leading, or special chars
+2. **relation**: keyword — only the 8 types above
 3. **value**:
-   - `:trans` → **`[a-z0-9]` 소문자+숫자만**. 공백/하이픈/대문자/한글/설명문 불허. **단어만**.
+   - `:trans` → **`[a-z0-9]` lowercase+digits only**. No spaces, hyphens, uppercase, Korean, or explanations. **One word.**
    - `:source` → Denote identifier (`YYYYMMDDTHHMMSS`)
-   - 그 외 → 하나의 개념 단어
-4. **중복 금지**: 동일 `[entity relation value]` 2회 이상 불허.
-5. **대칭 관계 자동**: `:opposite`, `:synonym`, `:related` → 역방향 자동 추가.
-6. **최대 길이**: value 50자 이하.
+   - others → one concept word
+4. **No duplicates**: same `[entity relation value]` must not appear twice
+5. **Auto-symmetric**: `:opposite`, `:synonym`, `:related` → reverse triple auto-added
+6. **Max length**: value ≤ 50 chars
 
-검증: `clj -M:run validate` (모든 커밋 전 실행)
+Validate: `clj -M:run validate` (run before every commit)
 
-## 파일 구조
+### Data Quality Policy
+
+- Fix obvious typos and incomplete values immediately
+- French/non-English words: leave unless clearly wrong (may be intentional)
+- Non-concept words: leave unless they violate invariants
+- Run `validate` after any graph.edn change to catch regressions
+
+## File Structure
 
 ```
 dictcli/
 ├── deps.edn
-├── build.clj                  # uberjar 빌드 (clj -T:build uber)
+├── build.clj                  # uberjar build (clj -T:build uber)
 ├── flake.nix
-├── graph.edn                  # 트리플 그래프 (진실의 원천)
-├── run.sh                     # CLI 래퍼 (native/JVM 분기)
+├── graph.edn                  # triple graph (source of truth)
+├── run.sh                     # CLI wrapper (native/JVM dispatch)
 ├── src/dictcli/
-│   ├── core.clj               # CLI 진입점 — expand, graph, stats, validate
-│   ├── graph.clj              # EDN 트리플 스토어, 인덱스, 쿼리
-│   ├── normalize.clj          # 정규화 (소문자, 공백 제거, 복합어 분리)
-│   ├── validate.clj           # 인바리언트 검증
-│   ├── stem.clj               # Kiwi 형태소 분석 (JVM 전용)
-│   ├── stem_main.clj          # stem CLI 엔트리포인트 (--batch, --serve)
-│   └── stem_server.clj        # stem 소켓 서버
-├── src-legacy/                # [레거시] SQLite/ten 파서 — 사용 안 함
+│   ├── core.clj               # CLI entrypoint — expand, graph, stats, validate
+│   ├── graph.clj              # EDN triple store, index, query
+│   ├── normalize.clj          # normalization (lowercase, trim, compound split)
+│   ├── validate.clj           # invariant validation
+│   ├── stem.clj               # Kiwi morphological analysis (JVM only)
+│   ├── stem_main.clj          # stem CLI entrypoint (--batch, --serve)
+│   └── stem_server.clj        # stem socket server
+├── src-legacy/                # [legacy] SQLite/ten parser — not used
 ├── test/dictcli/
-│   └── graph_test.clj         # 트리플 테스트
-├── lib/                       # Kiwi JNI jar (stem-setup으로 다운로드)
-├── models/                    # Kiwi 모델 (105MB, stem-setup으로 다운로드)
-└── data/                      # 시드/소스 EDN
-    ├── seed-clusters.edn      # 수작업 클러스터
-    ├── syntopicon.edn         # 신토피콘 102 Great Ideas
-    ├── philosophy.edn         # philosophy glossary
-    ├── general.edn            # general glossary
-    ├── practical.edn          # 실무 용어
-    ├── meta-sources.edn       # meta 노트 :source 연결
-    ├── meta-harvest-1.edn     # meta 수확 1차
-    ├── meta-harvest-2.edn     # meta 수확 2차
-    └── kengdic-coverage.edn   # kengdic 커버리지
+│   └── graph_test.clj         # triple tests
+├── lib/                       # Kiwi JNI jar (downloaded by stem-setup)
+├── models/                    # Kiwi models (105MB, downloaded by stem-setup)
+└── data/                      # seed/source EDN files
+    ├── seed-clusters.edn
+    ├── syntopicon.edn
+    ├── philosophy.edn
+    ├── general.edn
+    ├── practical.edn
+    ├── meta-sources.edn
+    ├── meta-harvest-1.edn
+    ├── meta-harvest-2.edn
+    └── kengdic-coverage.edn
 ```
 
-## 빌드 & 실행
+## Build & Run
 
 ```bash
-# 개발 (clj 직접)
-clj -M:run expand "보편" --json   # 쿼리 확장
-clj -M:run validate               # 인바리언트 검증
-clj -M:run stats                   # 그래프 통계
-clj -M:test                        # 테스트
+# Development (direct clj)
+clj -M:run expand "보편" --json   # query expansion
+clj -M:run validate               # invariant validation
+clj -M:run stats                  # graph statistics
+clj -M:test                       # tests
 
-# stem (JVM + Kiwi)
-./run.sh stem-setup                # Kiwi jar + 모델 다운로드 (최초 1회)
-./run.sh stem "설계했다"            # 단건 어간 추출
-echo -e "문장1\n문장2" | ./run.sh stem --batch  # 배치 (andenken용)
+# Stem (JVM + Kiwi)
+./run.sh stem-setup               # download Kiwi jar + models (one-time)
+./run.sh stem "설계했다"           # single morphological analysis
+echo -e "line1\nline2" | ./run.sh stem --batch   # batch (for andenken)
 
-# native binary 빌드 (GraalVM 필요)
-./run.sh build                     # target/dictcli-{arch}
-./run.sh build --output /path/to   # 빌드 + 복사 (graph.edn 포함)
+# Native binary build (GraalVM required)
+./run.sh build                    # → target/dictcli-{arch}
+./run.sh build --output /path/to  # build + copy (includes graph.edn)
 ```
 
-### 빌드 주의사항
+### Build Notes
 
-- `./run.sh build`는 `target/dictcli-{arch}` 캐시를 확인 — 있으면 복사만
-- 소스 수정 후 반드시 `rm -rf target/` 또는 `--force`
-- `build.clj`의 `ns-compile`에 stem 관련 ns 넣지 말 것 (JNI 의존)
-- Clojure 수정 후 괄호 균형 검증 필수: `(bound? #'dictcli.core/-main)` 테스트
+- `./run.sh build` checks cache at `target/dictcli-{arch}` via mtime validation
+  - Cache hit + valid → skip build (copy only)
+  - Cache invalid → delete + rebuild
+- After modifying source: cache auto-invalidated; or `rm -rf target/`
+- Do not add stem-related namespaces to `build.clj` ns-compile (JNI dependency)
+- **NixOS**: patchelf is automatically skipped (`/etc/NIXOS` guard) — do not patch interpreter on NixOS
+- After build: smoke test runs; if it fails, `--output` copy is skipped
+- Bracket balance is critical in `core.clj` — always verify `(-main)` is reachable
 
-### 커밋 메시지 스타일
+### Commit Message Style
 
 ```
 feat: add ten glossary parser
 fix: handle multi-line definitions
 data: add philosophy glossary sample
+fix(data): correct typos in graph.edn
 ```
 
-## 3층 모델에서의 위치
+## Position in the 3-Layer Model
 
-| 층 | 도구 | 역할 |
-|----|------|------|
-| 1층 | knowledge_search (andenken) | 임베딩 벡터 검색 |
-| 2층 | denotecli + dblock | 정확 매칭 + 그래프 링크 |
-| **3층** | **dictcli expand + stem** | **한→영 쿼리 확장 + 한국어 어간 추출** |
+| Layer | Tool | Role |
+|---|---|---|
+| 1 | knowledge_search (andenken) | embedding vector search |
+| 2 | denotecli + dblock | exact match + graph links |
+| **3** | **dictcli expand + stem** | **Korean→English query expansion + morphological stemming** |
 
-## 봇로그 참조
+## Botlog References
 
-- [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — 태그 정규화와 개인 어휘 사전 구상
-- [20260308T091235](https://notes.junghanacs.com/botlog/20260308T091235) — dblock 링크 포맷 정책
-- [20260304T004500](https://notes.junghanacs.com/botlog/20260304T004500) — 지식그래프 무무 무의식 에이전트 연상맵
+- [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — tag normalization and personal vocabulary graph concept
+- [20260308T091235](https://notes.junghanacs.com/botlog/20260308T091235) — dblock link format policy
+- [20260304T004500](https://notes.junghanacs.com/botlog/20260304T004500) — knowledge graph unconscious agent association map
 
-## 철학
+## Philosophy
 
-> 500워드는 벽이 아니라 '중력장(마당)'이다.
-> 에이전트의 방대한 잠재 공간을 정한님의 세계관으로 끌어당기는 핵심 마당.
-> — 제미나이(glg)
+> The 500-word guide is not a wall but a gravity field (마당):
+> it pulls the agent's vast latent space toward the user's worldview.
+> — Gemini (GLG)
 
-> 번역어 하나를 정하는 것이 앎의 틀을 결정한다.
-> 에이전트에게 "내 단어"를 공유하는 것. 기술이 아니라 약속.
+> Choosing a single translation defines the shape of knowledge.
+> Sharing "my words" with an agent is not a technical act — it is a covenant.
