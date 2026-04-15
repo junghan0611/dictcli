@@ -3,44 +3,30 @@
 ## 프로젝트 개요
 
 - **리포지토리**: junghan0611/dictcli
-- **목적**: 개인 어휘 사전 CLI — 한↔영↔독 매핑, 연상맵, 에이전트 태그 가이드
+- **목적**: 개인 어휘 그래프 — 한↔영 크로스링귀얼 쿼리 확장 + 한국어 형태소 분석
 - **언어**: Clojure
-- **데이터 포맷**: ten 형식 `<<용어>> :: 정의` (txt) → SQLite 인덱스
+- **데이터 포맷**: EDN 트리플 그래프 (`graph.edn`)
+
+## 아키텍처 — 이중 실행 모드
+
+```
+dictcli
+├─ Native Binary (GraalVM)     → expand, graph, stats, validate, ... (~9ms)
+│   └─ core.clj (-main)        → gen-class, stem 코드 없음
+│
+└─ JVM Mode (clj + Kiwi JNI)   → stem only (~2.5s 시작)
+    └─ stem_main.clj (-main)   → --batch, --serve, 단건
+```
+
+- **Native binary**: 에이전트가 knowledge_search 쿼리 확장 시 호출. 9ms.
+- **JVM stem**: andenken 인덱싱 파이프라인에서 배치 호출. Kiwi JNI가 native-image 불가.
+- **core.clj에 stem 관련 코드를 넣지 말 것.** stem은 stem_main.clj에서만.
 
 ## 핵심 개념
 
-### 데이터 흐름
-
-```
-소스 (txt, json)  →  dictcli build  →  dictcli.db (SQLite)  →  dictcli lookup/related
-                                                              →  pi-skill (에이전트)
-                                                              →  ten (Emacs fontify)
-```
-
-### 3축 데이터 소스
-
-| 축 | 경로 | 형식 | 내용 |
-|-----|------|------|------|
-| 1 | `~/sync/org/dict/*.txt` | ten glossary | 한↔영 매핑 16,639 용어 |
-| 2 | `~/repos/gh/naver-saiculture/wordmap.json` | JSON | 빈도 48,872 + 동시출현 100쌍 |
-| 3 | `~/org/` Denote 파일명 | 파일명 파싱 | 영어 태그 2,213종 |
-
-### ten 형식 규칙
-
-```
-<<용어>> :: 정의 또는 번역어
-```
-
-- 한 줄에 하나의 용어
-- `<<` `>>` 로 용어를 감싼다
-- `::` 뒤에 정의/번역
-- 양방향 매핑은 두 줄로 작성
-- 파일 확장자: `.txt` (ten 호환)
-- 파일명: Denote 형식 `YYYYMMDDTHHMMSS--제목__glossary.txt`
-
 ### 데이터 모델 — EDN 트리플 그래프
 
-코드가 곧 데이터. SQLite가 아니라 `graph.edn` 하나.
+코드가 곧 데이터. `graph.edn` 하나.
 
 ```clojure
 ;; 트리플: [entity relation value]
@@ -88,44 +74,60 @@ graph.edn의 모든 `[entity relation value]`는 아래를 만족해야 함:
 ```
 dictcli/
 ├── deps.edn
+├── build.clj                  # uberjar 빌드 (clj -T:build uber)
 ├── flake.nix
-├── graph.edn              # 트리플 그래프 (진실의 원천)
+├── graph.edn                  # 트리플 그래프 (진실의 원천)
+├── run.sh                     # CLI 래퍼 (native/JVM 분기)
 ├── src/dictcli/
-│   ├── core.clj           # CLI 진입점 (add, graph, expand, validate...)
-│   ├── graph.clj          # EDN 트리플 스토어, 인덱스, 쿼리
-│   ├── normalize.clj      # 정규화 (소문자, 공백 제거, 복합어 분리)
-│   ├── parser.clj         # <<용어>> :: 정의 ten 파서
-│   ├── db.clj             # [레거시] SQLite
-│   └── wordmap.clj        # saiculture wordmap 파서
+│   ├── core.clj               # CLI 진입점 — expand, graph, stats, validate
+│   ├── graph.clj              # EDN 트리플 스토어, 인덱스, 쿼리
+│   ├── normalize.clj          # 정규화 (소문자, 공백 제거, 복합어 분리)
+│   ├── validate.clj           # 인바리언트 검증
+│   ├── stem.clj               # Kiwi 형태소 분석 (JVM 전용)
+│   ├── stem_main.clj          # stem CLI 엔트리포인트 (--batch, --serve)
+│   └── stem_server.clj        # stem 소켓 서버
+├── src-legacy/                # [레거시] SQLite/ten 파서 — 사용 안 함
 ├── test/dictcli/
-│   ├── graph_test.clj     # 트리플 테스트
-│   └── parser_test.clj    # ten 파서 테스트
-└── data/                   # 시드/소스 EDN
-    ├── seed-clusters.edn   # 수작업 4개 클러스터
-    ├── syntopicon.edn      # 신토피콘 한↔영
-    ├── general.edn         # general glossary
-    └── meta-sources.edn    # meta 노트 :source 연결
+│   └── graph_test.clj         # 트리플 테스트
+├── lib/                       # Kiwi JNI jar (stem-setup으로 다운로드)
+├── models/                    # Kiwi 모델 (105MB, stem-setup으로 다운로드)
+└── data/                      # 시드/소스 EDN
+    ├── seed-clusters.edn      # 수작업 클러스터
+    ├── syntopicon.edn         # 신토피콘 102 Great Ideas
+    ├── philosophy.edn         # philosophy glossary
+    ├── general.edn            # general glossary
+    ├── practical.edn          # 실무 용어
+    ├── meta-sources.edn       # meta 노트 :source 연결
+    ├── meta-harvest-1.edn     # meta 수확 1차
+    ├── meta-harvest-2.edn     # meta 수확 2차
+    └── kengdic-coverage.edn   # kengdic 커버리지
 ```
 
-## 개발 가이드
-
-### 빌드 & 실행
+## 빌드 & 실행
 
 ```bash
-nix develop              # 개발 환경 진입
-clj -M:run build         # 소스 → SQLite 빌드
-clj -M:run lookup "존재"  # 용어 검색
-clj -M:test              # 테스트
+# 개발 (clj 직접)
+clj -M:run expand "보편" --json   # 쿼리 확장
+clj -M:run validate               # 인바리언트 검증
+clj -M:run stats                   # 그래프 통계
+clj -M:test                        # 테스트
+
+# stem (JVM + Kiwi)
+./run.sh stem-setup                # Kiwi jar + 모델 다운로드 (최초 1회)
+./run.sh stem "설계했다"            # 단건 어간 추출
+echo -e "문장1\n문장2" | ./run.sh stem --batch  # 배치 (andenken용)
+
+# native binary 빌드 (GraalVM 필요)
+./run.sh build                     # target/dictcli-{arch}
+./run.sh build --output /path/to   # 빌드 + 복사 (graph.edn 포함)
 ```
 
-### 구현 순서 (제안)
+### 빌드 주의사항
 
-1. **parser.clj** — `<<용어>> :: 정의` 파서 (가장 먼저, 테스트와 함께)
-2. **db.clj** — SQLite 스키마 생성, 삽입
-3. **core.clj** — CLI 진입점 (build 커맨드)
-4. **wordmap.clj** — saiculture wordmap.json 파서
-5. **search.clj** — lookup, related
-6. **denote.clj** — Denote 태그 추출 (denotecli 연동 또는 직접 파싱)
+- `./run.sh build`는 `target/dictcli-{arch}` 캐시를 확인 — 있으면 복사만
+- 소스 수정 후 반드시 `rm -rf target/` 또는 `--force`
+- `build.clj`의 `ns-compile`에 stem 관련 ns 넣지 말 것 (JNI 의존)
+- Clojure 수정 후 괄호 균형 검증 필수: `(bound? #'dictcli.core/-main)` 테스트
 
 ### 커밋 메시지 스타일
 
@@ -135,19 +137,19 @@ fix: handle multi-line definitions
 data: add philosophy glossary sample
 ```
 
+## 3층 모델에서의 위치
+
+| 층 | 도구 | 역할 |
+|----|------|------|
+| 1층 | knowledge_search (andenken) | 임베딩 벡터 검색 |
+| 2층 | denotecli + dblock | 정확 매칭 + 그래프 링크 |
+| **3층** | **dictcli expand + stem** | **한→영 쿼리 확장 + 한국어 어간 추출** |
+
 ## 봇로그 참조
 
-- [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — 태그 정규화와 개인 어휘 사전 구상 (핵심 문서, 3축 구조, 중력장, 번역어, org-supertag 검토)
-- [20260308T091235](https://notes.junghanacs.com/botlog/20260308T091235) — dblock 링크 포맷 정책 (태그 정책 `[a-z0-9]` only)
+- [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — 태그 정규화와 개인 어휘 사전 구상
+- [20260308T091235](https://notes.junghanacs.com/botlog/20260308T091235) — dblock 링크 포맷 정책
 - [20260304T004500](https://notes.junghanacs.com/botlog/20260304T004500) — 지식그래프 무무 무의식 에이전트 연상맵
-- [20260305T055000](https://notes.junghanacs.com/botlog/20260305T055000) — 오픈클로 유즈케이스와 어쏠로지스트의 길
-
-## 관련 소스
-
-- **이기상 선생님**: `~/repos/gh/naver-saiculture/` — 3,074편 블로그, wordmap.json
-- **dict/ glossary**: `~/sync/org/dict/` — ten 형식 용어 사전
-- **ten 패키지**: `~/.local/straight/repos/ten/` — Emacs fontify + xref
-- **코디정 번역어**: `denote:20241009T113329` — 순수이성비판 38개 핵심어 재번역
 
 ## 철학
 
