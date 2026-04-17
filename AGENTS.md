@@ -156,6 +156,42 @@ fix(data): correct typos in graph.edn
 | 2 | denotecli + dblock | exact match + graph links |
 | **3** | **dictcli expand + stem** | **Korean→English query expansion + morphological stemming** |
 
+### Integration with andenken and agent-config (important)
+
+`dictcli` is not maintained for standalone demo quality alone.
+Its practical value is judged by whether it improves **real andenken retrieval** for fresh-starting agents.
+
+Operational facts to remember:
+
+- andenken already covers many cross-lingual cases via embeddings
+- dictcli should therefore act as a **precision correction layer**, not a brute-force vocabulary dump
+- current andenken query expansion extracts **Korean tokens** and sends them to `dictcli expand`
+- this means transliteration mappings can matter immediately for search quality (e.g. `조테로 → zotero`, `안덴켄 → andenken`)
+- multi-word names may need an invariant-safe workaround because graph entities cannot contain spaces
+  - prefer one-word canonical entities (e.g. `바네바부시`, `vannevarbush`)
+  - then add small helper links only when needed for actual tokenized queries (e.g. `바네바 :related 바네바부시`)
+- do not add broad or ornamental transliterations unless they measurably help retrieval
+
+### Propagation rule
+
+A local `graph.edn` edit is not enough if agents consume dictcli through the agent-config skill bundle.
+After dictcli data changes, remember the downstream path:
+
+1. validate / test in this repo
+2. rebuild or recopy the skill bundle so the updated `graph.edn` reaches `agent-config/skills/dictcli/`
+3. if needed, run `~/repos/gh/agent-config/run.sh setup:build && ~/repos/gh/agent-config/run.sh setup:links`
+4. then verify the effect from andenken-facing queries, not only from raw `dictcli expand`
+
+### Evaluation stance
+
+Prefer small, practical additions with before/after checks.
+A good dictcli change should be explainable like this:
+
+- what real query failed before?
+- what exact triples were added?
+- what changed in `expand` output?
+- did the change improve actual andenken retrieval?
+
 ## Botlog References
 
 - [20260309T194058](https://notes.junghanacs.com/botlog/20260309T194058) — tag normalization and personal vocabulary graph concept
